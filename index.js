@@ -27,7 +27,9 @@ module.exports = function (file, opts) {
                 readFileSync: readFileSync,
                 readFile: readFile,
                 readdirSync: readdirSync,
-                readdir: readdir
+                readdir: readdir,
+                existsSync: existsSync,
+                exists: exists
             }
         },
         { vars: vars, varModules: { path: path } }
@@ -125,6 +127,51 @@ module.exports = function (file, opts) {
     function readdirSync (path) {
         var stream = through(write, end);
         fs.readdir(path, function (err, src) {
+            if (err) {
+                stream.emit('error', err);
+                return;
+            }
+            stream.end(JSON.stringify(src));
+        });
+        return stream;
+
+        function write (buf, enc, next) {
+            this.push(buf);
+            next();
+        }
+        function end (next) {
+            this.push(null);
+            next();
+        }
+    }
+
+    function exists(path, cb) {
+        var stream = through(write, end);
+
+        stream.push('process.nextTick(function(){(' + cb + ')(null,');
+        fs.exists(path, function (err, src) {
+            if (err) {
+                stream.emit('error', err);
+                return;
+            }
+            stream.push(JSON.stringify(src));
+            stream.end(')})');
+        });
+        return stream;
+
+        function write (buf, enc, next) {
+            this.push(buf);
+            next();
+        }
+        function end (next) {
+            this.push(null);
+            next();
+        }
+    }
+
+    function existsSync(path) {
+        var stream = through(write, end);
+        fs.exists(path, function (err, src) {
             if (err) {
                 stream.emit('error', err);
                 return;
